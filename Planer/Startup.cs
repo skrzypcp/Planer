@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.SpaServices.AngularCli;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Planer
 {
@@ -17,9 +18,18 @@ namespace Planer
 
         public IConfiguration Configuration { get; }
 
+        public class StaticFilesConfiguration
+        {
+            public string CacheControl { get; set; }
+            public string Pragma { get; set; }
+            public string Expires { get; set; }
+        }
+
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.Configure<StaticFilesConfiguration>
+            (Configuration.GetSection("StaticFiles:Headers"));
             services.AddControllersWithViews();
             // In production, the Angular files will be served from this directory
             services.AddSpaStaticFiles(configuration =>
@@ -29,7 +39,7 @@ namespace Planer
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IOptions<StaticFilesConfiguration> options)
         {
             if (env.IsDevelopment())
             {
@@ -43,7 +53,20 @@ namespace Planer
             }
 
             app.UseHttpsRedirection();
-            app.UseStaticFiles();
+            app.UseStaticFiles(new StaticFileOptions()
+            {
+                OnPrepareResponse = (context) =>
+                {
+                    StaticFilesConfiguration headers = options.Value;
+
+                    context.Context.Response.Headers["Cache-Control"] =
+                    headers.CacheControl;
+                    context.Context.Response.Headers["Pragma"] =
+                    headers.Pragma;
+                    context.Context.Response.Headers["Expires"] =
+                    headers.Expires;
+                }
+            });
             if (!env.IsDevelopment())
             {
                 app.UseSpaStaticFiles();
